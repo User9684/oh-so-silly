@@ -1,0 +1,4 @@
+#include "windows.h"
+
+IDR_SOUND1 RT_RCDATA "meow.wav"
+CAT1 RT_RCDATA "cat1.jpeg"
