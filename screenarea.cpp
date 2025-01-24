@@ -14,7 +14,7 @@ RECT GetTotalScreenArea() {
         totalArea->top = min(totalArea->top, lprcMonitor->top);
         totalArea->right = max(totalArea->right, lprcMonitor->right);
         totalArea->bottom = max(totalArea->bottom, lprcMonitor->bottom);
-        return TRUE;
+        return true;
       },
       reinterpret_cast<LPARAM>(&totalArea));
 

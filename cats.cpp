@@ -83,7 +83,7 @@ void SpawnCat(HINSTANCE hInstance) {
   GlobalUnlock(hMem);
 
   IStream *pStream = NULL;
-  if (CreateStreamOnHGlobal(hMem, TRUE, &pStream) != S_OK) {
+  if (CreateStreamOnHGlobal(hMem, true, &pStream) != S_OK) {
     std::cerr << "Failed to create stream for image!" << std::endl;
     GlobalFree(hMem);
     Gdiplus::GdiplusShutdown(gdiplusToken);

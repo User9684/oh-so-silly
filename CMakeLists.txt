@@ -18,5 +18,5 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${RESOURCE_FILE})
 target_link_libraries(hehe PRIVATE user32 winmm)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    WIN32_EXECUTABLE TRUE
+    WIN32_EXECUTABLE true
 )

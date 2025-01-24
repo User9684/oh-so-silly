@@ -41,7 +41,7 @@ BOOL CALLBACK EnumNamesCallback(HMODULE hModule, LPCSTR lpszType,
     HRSRC hResInfo = FindResource(hModule, lpszName, lpszType);
     if (!hResInfo) {
       // Continue enumerating as the resource wasn't found
-      return TRUE;
+      return true;
     }
 
     HANDLE hData = LoadResource(hModule, hResInfo);
@@ -50,11 +50,11 @@ BOOL CALLBACK EnumNamesCallback(HMODULE hModule, LPCSTR lpszType,
       context->found = true;
 
       FreeResource(hResInfo);
-      return FALSE; // Stop enumeration as we've found the resource
+      return false; // Stop enumeration as we've found the resource
     }
   }
 
-  return TRUE; // Continue enumeration
+  return true; // Continue enumeration
 }
 
 // Callback to enumerate all resource types
@@ -62,7 +62,7 @@ BOOL CALLBACK EnumTypesCallback(HMODULE hModule, PCHAR lpszType,
                                 LONG_PTR lParam) {
   auto *context = reinterpret_cast<ResourceSearchContext *>(lParam);
   if (context->found)
-    return FALSE; // Stop if already found
+    return false; // Stop if already found
 
   if (!EnumResourceNames(hModule, lpszType, EnumNamesCallback, lParam)) {
     if (GetLastError() != ERROR_RESOURCE_TYPE_NOT_FOUND) {
