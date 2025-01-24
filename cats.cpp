@@ -19,17 +19,30 @@ struct CatWindowData {
 };
 
 const std::map<std::string, int> catRatios = {
-    {"CAT1", 3},
     {"CAT2", 2},
     {"CAT3", 3},
     {"CAT4", 3},
+    {"CAT5", 3},
+    {"CAT6", 3},
+    {"CAT7", 3},
+    {"CAT8", 3},
+    {"CAT9", 3},
+    {"CAT10", 3},
+    {"CAT11", 3},
 };
 
 const std::vector<std::string> cats = {
-    "CAT1",
     "CAT2",
     "CAT3",
     "CAT4",
+    "CAT4",
+    "CAT5",
+    "CAT6",
+    "CAT7",
+    "CAT8",
+    "CAT9",
+    "CAT10",
+    "CAT11",
 };
 
 std::string gen_random(const int len) {
