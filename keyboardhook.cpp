@@ -38,7 +38,6 @@ void Meow() {
 
   // Detach the thread so it runs independently
   soundThread.detach();
-  Sleep(2000);
   return;
 }
 
