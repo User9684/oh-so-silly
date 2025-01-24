@@ -11,38 +11,22 @@
 
 struct CatWindowData {
   Gdiplus::Bitmap *image;
-  int scaleRatio;
-  int x;
-  int y;
-  int dx;
-  int dy;
+  float scaleRatio;
+  float x;
+  float y;
+  float dx;
+  float dy;
 };
 
-const std::map<std::string, int> catRatios = {
-    {"CAT2", 2},
-    {"CAT3", 3},
-    {"CAT4", 3},
-    {"CAT5", 3},
-    {"CAT6", 3},
-    {"CAT7", 3},
-    {"CAT8", 3},
-    {"CAT9", 3},
-    {"CAT10", 3},
-    {"CAT11", 3},
+const std::map<std::string, float> catRatios = {
+    {"CAT1", 3.0f}, {"CAT2", 2.5f},  {"CAT3", 3.0f}, {"CAT4", 3.5f},
+    {"CAT5", 1.0f}, {"CAT6", 0.3f},  {"CAT7", 4.0f}, {"CAT8", 0.5f},
+    {"CAT9", 0.7f}, {"CAT10", 7.0f},
 };
 
 const std::vector<std::string> cats = {
-    "CAT2",
-    "CAT3",
-    "CAT4",
-    "CAT4",
-    "CAT5",
-    "CAT6",
-    "CAT7",
-    "CAT8",
-    "CAT9",
-    "CAT10",
-    "CAT11",
+    "CAT1", "CAT2", "CAT3", "CAT4", "CAT5",
+    "CAT6", "CAT7", "CAT8", "CAT9", "CAT10",
 };
 
 std::string gen_random(const int len) {
@@ -116,14 +100,14 @@ void SpawnCat(HINSTANCE hInstance) {
   pStream->Release();
 
   // Use the ratio from the map (defaults to 1 if not found)
-  int scaleRatio = 1;
+  float scaleRatio = 1;
   auto it = catRatios.find(catName);
   if (it != catRatios.end()) {
     scaleRatio = it->second;
   }
 
-  int imageWidth = catImage->GetWidth() / scaleRatio;
-  int imageHeight = catImage->GetHeight() / scaleRatio;
+  float imageWidth = static_cast<float>(catImage->GetWidth()) / scaleRatio;
+  float imageHeight = static_cast<float>(catImage->GetHeight()) / scaleRatio;
 
   CatWindowData *catData = new CatWindowData;
   catData->image = catImage;
@@ -159,10 +143,10 @@ void SpawnCat(HINSTANCE hInstance) {
       if (!data)
         return 0;
 
-      int imageWidth =
-          static_cast<int>(data->image->GetWidth()) / data->scaleRatio;
-      int imageHeight =
-          static_cast<int>(data->image->GetHeight()) / data->scaleRatio;
+      float imageWidth =
+          static_cast<float>(data->image->GetWidth()) / data->scaleRatio;
+      float imageHeight =
+          static_cast<float>(data->image->GetHeight()) / data->scaleRatio;
 
       RECT totalScreen = GetTotalScreenArea();
 
@@ -198,16 +182,18 @@ void SpawnCat(HINSTANCE hInstance) {
 
       RECT rect;
       GetClientRect(hwnd, &rect);
-      int windowWidth = rect.right - rect.left;
-      int windowHeight = rect.bottom - rect.top;
+      float windowWidth = static_cast<float>(rect.right - rect.left);
+      float windowHeight = static_cast<float>(rect.bottom - rect.top);
 
       // Get the dimensions of the image
-      int scaledWidth = data->image->GetWidth() / data->scaleRatio;
-      int scaledHeight = data->image->GetHeight() / data->scaleRatio;
+      float scaledWidth =
+          static_cast<float>(data->image->GetWidth()) / data->scaleRatio;
+      float scaledHeight =
+          static_cast<float>(data->image->GetHeight()) / data->scaleRatio;
 
       // Calculate the top-left position to center the image
-      int xPos = (windowWidth - scaledWidth) / 2;
-      int yPos = (windowHeight - scaledHeight) / 2;
+      float xPos = (windowWidth - scaledWidth) / 2;
+      float yPos = (windowHeight - scaledHeight) / 2;
 
       Gdiplus::Graphics graphics(hdc);
       graphics.DrawImage(data->image, xPos, yPos, scaledWidth, scaledHeight);
