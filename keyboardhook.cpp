@@ -6,6 +6,7 @@
 #include <vector>
 #include <windows.h>
 
+HINSTANCE rootHInstance;
 HHOOK keyboardHook;
 HRSRC resource;
 
@@ -63,10 +64,12 @@ LRESULT CALLBACK KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
   if (nCode == HC_ACTION) {
     KBDLLHOOKSTRUCT *keyInfo = (KBDLLHOOKSTRUCT *)lParam;
 
-    if (std::find(kitties.begin(), kitties.end(), keyInfo->vkCode) !=
-        kitties.end()) {
+    if ((wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) &&
+        std::find(kitties.begin(), kitties.end(), keyInfo->vkCode) !=
+            kitties.end()) {
       std::thread soundThread(Meow);
       soundThread.detach();
+      SpawnCat(rootHInstance);
     }
 
     if ((wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) &&
@@ -84,7 +87,9 @@ LRESULT CALLBACK KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
   return 1;
 }
 
-int InitKeyboardHook() {
+int InitKeyboardHook(HINSTANCE hInstance) {
+  rootHInstance = hInstance;
+
   const std::wstring resourceName = L"IDR_SOUND1";
   if (FindResourceByNameAcrossAllTypes(resourceName, resource) != 0) {
     std::cerr << "Resource not found: " << WStringToString(resourceName)

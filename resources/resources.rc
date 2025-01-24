@@ -2,3 +2,6 @@
 
 IDR_SOUND1 RT_RCDATA "meow.wav"
 CAT1 RT_RCDATA "cat1.jpeg"
+CAT2 RT_RCDATA "cat2.png"
+CAT3 RT_RCDATA "cat3.jpeg"
+CAT4 RT_RCDATA "cat4.jpeg"

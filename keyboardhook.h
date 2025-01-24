@@ -4,3 +4,4 @@
 int FindResourceByNameAcrossAllTypes(const std::wstring &targetName,
                                      HRSRC &resourceOut);
 void PlayResource(const HRSRC resource);
+void SpawnCat(HINSTANCE hInstance);

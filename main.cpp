@@ -8,7 +8,7 @@
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine, int nCmdShow) {
 
-  InitKeyboardHook();
+  InitKeyboardHook(hInstance);
   ApplyHueOverlay(hInstance);
   SpawnCat(hInstance);
 
