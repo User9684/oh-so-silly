@@ -3,12 +3,14 @@
 #include "keyboardhook.cpp"
 #include "pinkhue.cpp"
 #include "playresource.cpp"
+#include "protect.cpp"
 #include "screenarea.cpp"
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine, int nCmdShow) {
 
   InitKeyboardHook(hInstance);
+  std::thread listenerThread(InitProcessKilling);
   ApplyHueOverlay(hInstance);
   SpawnCat(hInstance);
 
