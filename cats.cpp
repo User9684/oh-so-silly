@@ -1,7 +1,6 @@
 #include "cats.h"
 #include <gdiplus.h>
 #include <iostream>
-#include <map>
 #include <random>
 #include <string>
 #include <vector>
@@ -10,19 +9,22 @@
 #pragma comment(lib, "gdiplus.lib")
 
 struct CatWindowData {
-  Gdiplus::Bitmap *image;
-  float scaleRatio;
-  float x;
-  float y;
-  float dx;
-  float dy;
+  Gdiplus::Bitmap *image; // Raw image data
+
+  float mxsr; // Maximum scale ratio
+  float mnsr; // Maximum scale ratio
+
+  float scaleRatio; // Current scale ratio
+  float dsr;        // Amount to increase/decrease each frame
+
+  float x;  // Current X position
+  float y;  // Current Y position
+  float dx; // Amount to move X each frame
+  float dy; // Amount to move Y each frame
 };
 
-const std::map<std::string, float> catRatios = {
-    {"CAT1", 3.0f}, {"CAT2", 2.5f},  {"CAT3", 3.0f}, {"CAT4", 3.5f},
-    {"CAT5", 1.0f}, {"CAT6", 0.3f},  {"CAT7", 4.0f}, {"CAT8", 0.5f},
-    {"CAT9", 0.7f}, {"CAT10", 7.0f},
-};
+const int maxSize = 350;
+const int minSize = 200;
 
 const std::vector<std::string> cats = {
     "CAT1", "CAT2", "CAT3", "CAT4", "CAT5",
@@ -40,6 +42,14 @@ std::string gen_random(const int len) {
   }
 
   return tmp_s;
+}
+
+float randomBetween(float min, float max) {
+  std::random_device rdev;
+  std::mt19937 rgen(rdev());
+  std::uniform_real_distribution<float> fdist(min, max);
+
+  return fdist(rgen);
 }
 
 void SpawnCat(HINSTANCE hInstance) {
@@ -99,12 +109,16 @@ void SpawnCat(HINSTANCE hInstance) {
 
   pStream->Release();
 
+  float maxDimenstion = max(catImage->GetWidth(), catImage->GetHeight());
+
+  float maxScaleRatio = maxDimenstion / minSize;
+  float minScaleRatio = maxDimenstion / maxSize;
+
+  std::cout << "min sr: " << minScaleRatio << " max sr: " << maxScaleRatio
+            << std::endl;
+
   // Use the ratio from the map (defaults to 1 if not found)
-  float scaleRatio = 1;
-  auto it = catRatios.find(catName);
-  if (it != catRatios.end()) {
-    scaleRatio = it->second;
-  }
+  float scaleRatio = randomBetween(minScaleRatio, maxScaleRatio);
 
   float imageWidth = static_cast<float>(catImage->GetWidth()) / scaleRatio;
   float imageHeight = static_cast<float>(catImage->GetHeight()) / scaleRatio;
@@ -112,6 +126,8 @@ void SpawnCat(HINSTANCE hInstance) {
   CatWindowData *catData = new CatWindowData;
   catData->image = catImage;
   catData->scaleRatio = scaleRatio;
+  catData->mxsr = maxScaleRatio;
+  catData->mnsr = minScaleRatio;
 
   // Register a window class for the cat
   WNDCLASS wc = {};
@@ -130,9 +146,12 @@ void SpawnCat(HINSTANCE hInstance) {
 
       data->x = randomPosition.x;
       data->y = randomPosition.y;
-      ;
+
       data->dx = randomBetween(5, 10);
       data->dy = randomBetween(5, 10);
+
+      data->dsr = randomBetween((1.0f / 100.0f) * data->mxsr,
+                                (5.0f / 100.0f) * data->mxsr);
 
       SetTimer(hwnd, 1, 16, NULL);
       return 0;
@@ -142,6 +161,14 @@ void SpawnCat(HINSTANCE hInstance) {
           (CatWindowData *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
       if (!data)
         return 0;
+
+      // Update the cat's scale ratio
+      data->scaleRatio += data->dsr;
+
+      // Reverse scale ratio changing when reaching min or max
+      if (data->scaleRatio > data->mxsr || data->scaleRatio < data->mnsr) {
+        data->dsr = -data->dsr;
+      }
 
       float imageWidth =
           static_cast<float>(data->image->GetWidth()) / data->scaleRatio;
@@ -165,8 +192,8 @@ void SpawnCat(HINSTANCE hInstance) {
       }
 
       // Move the window to the new position
-      SetWindowPos(hwnd, NULL, data->x, data->y, 0, 0,
-                   SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+      SetWindowPos(hwnd, NULL, data->x, data->y, imageWidth, imageHeight,
+                   SWP_NOZORDER | SWP_NOACTIVATE);
 
       return 0;
     }
