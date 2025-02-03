@@ -1,5 +1,7 @@
+#include <cstddef>
 #include <iostream>
 #include <string>
+#include <vector>
 #include <windows.h>
 
 #pragma once
@@ -71,13 +73,46 @@ BOOL CALLBACK EnumTypesCallback(HMODULE hModule, PCHAR lpszType,
   return !context->found; // Continue enumeration if not found
 }
 
+BOOL CALLBACK ListResourcesCallback(HMODULE hModule, LPCSTR lpszType,
+                                    LPSTR lpszName, LONG_PTR lParam) {
+  auto *resources = reinterpret_cast<std::vector<std::string> *>(lParam);
+
+  if (IS_INTRESOURCE(lpszName)) {
+    resources->push_back("ID: " +
+                         std::to_string(reinterpret_cast<UINT_PTR>(lpszName)));
+  } else {
+    resources->push_back(lpszName);
+  }
+
+  return true; // Continue enumeration
+}
+
+std::vector<std::string> ListResourcesOfType(PCHAR lpszType) {
+  std::vector<std::string> resources;
+
+  HMODULE hModule = GetModuleHandle(NULL);
+  if (hModule == NULL) {
+    std::cerr << "Failed to get module handle: " << GetLastError() << std::endl;
+    return {};
+  }
+
+  if (!EnumResourceNames(hModule, lpszType, ListResourcesCallback,
+                         reinterpret_cast<LONG_PTR>(&resources))) {
+    if (GetLastError() != ERROR_RESOURCE_TYPE_NOT_FOUND) {
+      std::cerr << "Failed to enumerate resources: " << GetLastError()
+                << std::endl;
+    }
+  }
+
+  return resources;
+}
+
 // Function to find a resource by name across all types
 int FindResourceByNameAcrossAllTypes(const std::wstring &targetName,
                                      HRSRC &resourceOut) {
   HMODULE hModule = GetModuleHandle(NULL);
   if (hModule == NULL) {
-    // std::cerr << "Failed to get module handle: " << GetLastError() <<
-    // std::endl;
+    std::cerr << "Failed to get module handle: " << GetLastError() << std::endl;
     return -1;
   }
 

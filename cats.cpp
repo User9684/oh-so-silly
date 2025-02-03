@@ -1,15 +1,19 @@
 #include "cats.h"
+#include <cstddef>
 #include <gdiplus.h>
 #include <iostream>
+#include <map>
+#include <minwindef.h>
 #include <random>
 #include <string>
 #include <vector>
 #include <windows.h>
+#include <winuser.h>
 
 #pragma comment(lib, "gdiplus.lib")
 
 struct CatWindowData {
-  Gdiplus::Bitmap *image; // Raw image data
+  std::string imageName; // Image name to reference loadedImages
 
   float mxsr; // Maximum scale ratio
   float mnsr; // Maximum scale ratio
@@ -23,12 +27,20 @@ struct CatWindowData {
   float dy; // Amount to move Y each frame
 };
 
+std::vector<CatWindowData> catImages;
+HWND mainWindow;
+HDC hdcMem = NULL;
+HBITMAP hbmMem = NULL;
+RECT clientRect;
+Gdiplus::Graphics *graphics = nullptr;
+
 const int maxSize = 350;
 const int minSize = 200;
 
-const std::vector<std::string> cats = {
-    "CAT1", "CAT2", "CAT3", "CAT4", "CAT5",
-    "CAT6", "CAT7", "CAT8", "CAT9", "CAT10",
+std::vector<std::string> cats = {};
+
+std::map<std::string, Gdiplus::Bitmap *> loadedImages = {
+
 };
 
 std::string gen_random(const int len) {
@@ -52,10 +64,145 @@ float randomBetween(float min, float max) {
   return fdist(rgen);
 }
 
-void SpawnCat(HINSTANCE hInstance) {
-  std::string catIdentifier = "CatWindow_" + gen_random(8);
+LRESULT CALLBACK CatWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
+                               LPARAM lParam) {
 
-  const LPCSTR CLASS_NAME = catIdentifier.c_str();
+  switch (uMsg) {
+  case WM_TIMER: {
+    RECT windowRect;
+    GetWindowRect(hwnd, &windowRect);
+    int windowWidth = windowRect.right - windowRect.left;
+    int windowHeight = windowRect.bottom - windowRect.top;
+
+    for (size_t i = 0; i < catImages.size(); ++i) {
+      CatWindowData &cat = catImages[i];
+
+      auto it = loadedImages.find(cat.imageName);
+      if (it == loadedImages.end()) {
+        continue;
+      }
+
+      Gdiplus::Bitmap *image = it->second;
+
+      cat.scaleRatio += cat.dsr;
+      if (cat.scaleRatio > cat.mxsr || cat.scaleRatio < cat.mnsr) {
+        cat.dsr = -cat.dsr;
+      }
+
+      float width = image->GetWidth() / cat.scaleRatio;
+      float height = image->GetHeight() / cat.scaleRatio;
+
+      cat.x += cat.dx;
+      cat.y += cat.dy;
+
+      if (cat.x - (width / 2) < 0 || cat.x + (width / 2) > windowWidth) {
+        cat.dx = -cat.dx;
+      }
+      if (cat.y - (height / 2) < 0 || cat.y + (height / 2) > windowHeight)
+        cat.dy = -cat.dy;
+    }
+    RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_INTERNALPAINT);
+    UpdateWindow(mainWindow);
+    return 0;
+  }
+  case WM_PAINT: {
+    PAINTSTRUCT ps;
+    HDC hdc = BeginPaint(hwnd, &ps);
+
+    // Ensure the buffer is valid
+    if (!graphics) {
+      EndPaint(hwnd, &ps);
+      return 0;
+    }
+
+    // Clear the buffer
+    graphics->Clear(Gdiplus::Color(0, 0, 0, 0));
+
+    // Draw cats onto the buffer
+    for (const auto &cat : catImages) {
+      auto it = loadedImages.find(cat.imageName);
+      if (it == loadedImages.end()) {
+        continue;
+      }
+
+      Gdiplus::Bitmap *image = it->second;
+
+      float w = image->GetWidth() / cat.scaleRatio;
+      float h = image->GetHeight() / cat.scaleRatio;
+      graphics->DrawImage(image, cat.x - (w / 2), cat.y - (h / 2), w, h);
+    }
+
+    // Copy the buffer to the window
+    BitBlt(hdc, 0, 0, clientRect.right - clientRect.left,
+           clientRect.bottom - clientRect.top, hdcMem, 0, 0, SRCCOPY);
+
+    EndPaint(hwnd, &ps);
+    return 0;
+  }
+  case WM_ERASEBKGND:
+    return 1;
+  case WM_DESTROY:
+    if (graphics) {
+      delete graphics;
+      graphics = nullptr;
+    }
+    if (hbmMem) {
+      DeleteObject(hbmMem);
+      hbmMem = NULL;
+    }
+    if (hdcMem) {
+      DeleteDC(hdcMem);
+      hdcMem = NULL;
+    }
+    PostQuitMessage(0);
+    return 0;
+  }
+  return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+int InitCats(HINSTANCE hInstance) {
+  char type[] = "CAT";
+  cats = ListResourcesOfType(type);
+
+  WNDCLASS wc = {};
+  wc.lpfnWndProc = CatWindowProc;
+  wc.hInstance = hInstance;
+  wc.lpszClassName = "CatWindow";
+  if (!RegisterClass(&wc)) {
+    std::cerr << "Failed to register cat window class!" << std::endl;
+    return 1;
+  }
+
+  RECT totalArea = GetTotalScreenArea();
+  mainWindow = CreateWindowEx(
+      WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT,
+      "CatWindow", "", WS_POPUP, totalArea.left, totalArea.top,
+      totalArea.right - totalArea.left, totalArea.bottom - totalArea.top, NULL,
+      NULL, hInstance, NULL);
+
+  SetLayeredWindowAttributes(mainWindow, RGB(0, 0, 0), 0, LWA_COLORKEY);
+
+  ShowWindow(mainWindow, SW_SHOW);
+  SetTimer(mainWindow, 1, 16, NULL);
+
+  HDC hdc = GetDC(mainWindow);
+  hdcMem = CreateCompatibleDC(hdc);
+  GetClientRect(mainWindow, &clientRect);
+  hbmMem = CreateCompatibleBitmap(hdc, clientRect.right, clientRect.bottom);
+  SelectObject(hdcMem, hbmMem);
+  graphics = new Gdiplus::Graphics(hdcMem);
+  ReleaseDC(mainWindow, hdc);
+
+  MSG msg;
+  while (GetMessage(&msg, NULL, 0, 0)) {
+    TranslateMessage(&msg);
+    DispatchMessage(&msg);
+  }
+
+  return 0;
+}
+
+void SpawnCat() {
   const std::string catName = cats[rand() % cats.size()];
   const std::wstring resourceName(catName.begin(), catName.end());
   HRSRC hRes = nullptr;
@@ -123,155 +270,29 @@ void SpawnCat(HINSTANCE hInstance) {
   float imageWidth = static_cast<float>(catImage->GetWidth()) / scaleRatio;
   float imageHeight = static_cast<float>(catImage->GetHeight()) / scaleRatio;
 
-  CatWindowData *catData = new CatWindowData;
-  catData->image = catImage;
-  catData->scaleRatio = scaleRatio;
-  catData->mxsr = maxScaleRatio;
-  catData->mnsr = minScaleRatio;
+  float scaleRatioDist = randomBetween((1.0f / 100.0f) * maxScaleRatio,
+                                       (5.0f / 100.0f) * minScaleRatio);
+  float xOffset = (catImage->GetWidth() / 2.0f) / scaleRatio;
+  float yOffset = (catImage->GetHeight() / 2.0f) / scaleRatio;
 
-  // Register a window class for the cat
-  WNDCLASS wc = {};
-  wc.lpfnWndProc = [](HWND hwnd, UINT uMsg, WPARAM wParam,
-                      LPARAM lParam) -> LRESULT {
-    static CatWindowData *data = nullptr;
+  POINT randomPosition = GetRandomPositionOnScreen();
 
-    switch (uMsg) {
-    case WM_CREATE: {
-      CREATESTRUCT *cs = (CREATESTRUCT *)lParam;
-      CatWindowData *data = (CatWindowData *)cs->lpCreateParams;
-
-      SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)data);
-
-      POINT randomPosition = GetRandomPositionOnScreen();
-
-      data->x = randomPosition.x;
-      data->y = randomPosition.y;
-
-      data->dx = randomBetween(5, 10);
-      data->dy = randomBetween(5, 10);
-
-      data->dsr = randomBetween((1.0f / 100.0f) * data->mxsr,
-                                (5.0f / 100.0f) * data->mxsr);
-
-      SetTimer(hwnd, 1, 16, NULL);
-      return 0;
-    }
-    case WM_TIMER: {
-      CatWindowData *data =
-          (CatWindowData *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-      if (!data)
-        return 0;
-
-      // Update the cat's scale ratio
-      data->scaleRatio += data->dsr;
-
-      // Reverse scale ratio changing when reaching min or max
-      if (data->scaleRatio > data->mxsr || data->scaleRatio < data->mnsr) {
-        data->dsr = -data->dsr;
-      }
-
-      float imageWidth =
-          static_cast<float>(data->image->GetWidth()) / data->scaleRatio;
-      float imageHeight =
-          static_cast<float>(data->image->GetHeight()) / data->scaleRatio;
-
-      RECT totalScreen = GetTotalScreenArea();
-
-      // Update the cat's position
-      data->x += data->dx;
-      data->y += data->dy;
-
-      // Reverse direction on hitting screen boundaries
-      if (data->x < totalScreen.left ||
-          data->x + imageWidth > totalScreen.right) {
-        data->dx = -data->dx;
-      }
-      if (data->y < totalScreen.top ||
-          data->y + imageWidth > totalScreen.bottom) {
-        data->dy = -data->dy;
-      }
-
-      // Move the window to the new position
-      SetWindowPos(hwnd, NULL, data->x, data->y, imageWidth, imageHeight,
-                   SWP_NOZORDER | SWP_NOACTIVATE);
-
-      return 0;
-    }
-
-    case WM_PAINT: {
-      CatWindowData *data =
-          (CatWindowData *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-      if (!data)
-        return 0;
-
-      PAINTSTRUCT ps;
-      HDC hdc = BeginPaint(hwnd, &ps);
-
-      RECT rect;
-      GetClientRect(hwnd, &rect);
-      float windowWidth = static_cast<float>(rect.right - rect.left);
-      float windowHeight = static_cast<float>(rect.bottom - rect.top);
-
-      // Get the dimensions of the image
-      float scaledWidth =
-          static_cast<float>(data->image->GetWidth()) / data->scaleRatio;
-      float scaledHeight =
-          static_cast<float>(data->image->GetHeight()) / data->scaleRatio;
-
-      // Calculate the top-left position to center the image
-      float xPos = (windowWidth - scaledWidth) / 2;
-      float yPos = (windowHeight - scaledHeight) / 2;
-
-      Gdiplus::Graphics graphics(hdc);
-      graphics.DrawImage(data->image, xPos, yPos, scaledWidth, scaledHeight);
-
-      EndPaint(hwnd, &ps);
-      return 0;
-    }
-    case WM_DESTROY: {
-      CatWindowData *data =
-          (CatWindowData *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-      if (data) {
-        KillTimer(hwnd, 1);
-        delete data->image;
-        delete data;
-      }
-      PostQuitMessage(0);
-      return 0;
-    }
-    default:
-      return DefWindowProc(hwnd, uMsg, wParam, lParam);
-    }
-  };
-  wc.hInstance = hInstance;
-  wc.lpszClassName = CLASS_NAME;
-
-  if (!RegisterClass(&wc)) {
-    std::cerr << "Failed to register cat window class!" << std::endl;
-    delete catImage;
-    delete catData;
-    GlobalFree(hMem);
-    Gdiplus::GdiplusShutdown(gdiplusToken);
-    return;
+  if (loadedImages.find(catName) == loadedImages.end()) {
+    loadedImages.insert({catName, catImage});
   }
 
-  // Create the window with the scaled size
-  HWND hwnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW |
-                                 WS_EX_TRANSPARENT,
-                             CLASS_NAME, "", WS_POPUP, 0, 0, imageWidth,
-                             imageHeight, NULL, NULL, hInstance, catData);
+  catImages.push_back({
+      catName, // imageName
 
-  SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+      maxScaleRatio, // mxsr
+      minScaleRatio, // mnsr
 
-  if (!hwnd) {
-    std::cerr << "Failed to create cat window!" << std::endl;
-    delete catImage;
-    delete catData;
-    GlobalFree(hMem);
-    Gdiplus::GdiplusShutdown(gdiplusToken);
-    return;
-  }
+      scaleRatio,     // scaleRatio
+      scaleRatioDist, // dsr
 
-  ShowWindow(hwnd, SW_SHOW);
-  UpdateWindow(hwnd);
+      static_cast<float>(randomPosition.x) + imageWidth / 2,  // x
+      static_cast<float>(randomPosition.y) + imageHeight / 2, // y
+      static_cast<float>(randomBetween(5, 10)),               // dx
+      static_cast<float>(randomBetween(5, 10)),               // dy
+  });
 }

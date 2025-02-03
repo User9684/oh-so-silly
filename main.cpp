@@ -8,11 +8,16 @@
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine, int nCmdShow) {
-
   InitKeyboardHook(hInstance);
   std::thread listenerThread(InitProcessKilling);
   ApplyHueOverlay(hInstance);
-  SpawnCat(hInstance);
+
+  std::thread catThread(InitCats, hInstance);
+
+  std::thread nt([]() {
+    Sleep(500);
+    SpawnCat();
+  });
 
   // Message loop to keep the application running
   MSG msg;
