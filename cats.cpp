@@ -33,6 +33,7 @@ HDC hdcMem = NULL;
 HBITMAP hbmMem = NULL;
 RECT clientRect;
 Gdiplus::Graphics *graphics = nullptr;
+ULONG_PTR gdiplusToken;
 
 const int maxSize = 350;
 const int minSize = 200;
@@ -164,6 +165,13 @@ int InitCats(HINSTANCE hInstance) {
   char type[] = "CAT";
   cats = ListResourcesOfType(type);
 
+  Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+  if (Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL) !=
+      Gdiplus::Ok) {
+    std::cerr << "Failed to initialize GDI+!" << std::endl;
+    return 1;
+  }
+
   WNDCLASS wc = {};
   wc.lpfnWndProc = CatWindowProc;
   wc.hInstance = hInstance;
@@ -225,11 +233,6 @@ void SpawnCat() {
     std::cerr << "Failed to lock resource: " << catName << std::endl;
     return;
   }
-
-  // Initialize GDI+
-  Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-  ULONG_PTR gdiplusToken;
-  Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
   // Create an IStream from the resource data
   HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, imageSize);
